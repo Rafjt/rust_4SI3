@@ -1,6 +1,7 @@
-fn main() {
-   let mut x : i32 = 10;
-   println!("x: {x}");
-   x = 20;
-   println!("new x is : {x}"); 
-}
+// #![no_std]
+
+// pub extern "C" fn main(argc: isize, argv: *const *const u8) -> isize {
+    
+// }
+
+// TODO: savoir si on doit faire l'implem du main en vanilla ou no_std ?
