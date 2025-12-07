@@ -5,3 +5,7 @@
 // }
 
 // TODO: savoir si on doit faire l'implem du main en vanilla ou no_std ?
+
+fn main() {
+    println!("test")
+}
