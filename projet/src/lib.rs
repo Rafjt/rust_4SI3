@@ -38,4 +38,51 @@ impl<D: BlockDevice> Fat32<D> { // Read du boot sector
     }
 }
 
-// TODO: à tester, implémenter des vrais tests
+
+struct MockDevice {
+    data: Vec<u8>,
+}
+
+impl BlockDevice for MockDevice {
+    fn read_sector(&mut self, lba: u64, sector: &mut [u8; 512]) {
+        let start = (lba as usize) * 512;
+        let end = start + 512;
+        sector.copy_from_slice(&self.data[start..end]);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate std; // => pour pouvoir utiliser Vec
+
+    use super::*;
+    use std::vec::Vec;
+    use crate::tests::alloc::vec;
+
+    #[test]
+    fn test_read_boot_sector() {
+
+        let mut img = vec![0u8; 512]; // => // 1) On simule un secteur de 512 byte
+
+        img[11] = 0x00; // bytes_per_sector = 512 → 0x0200 little endian
+        img[12] = 0x02;
+
+        img[13] = 0x08; // sectors_per_cluster = 8
+
+        img[44] = 0x02; // root_cluster = 2
+        img[45] = 0x00;
+        img[46] = 0x00;
+        img[47] = 0x00;
+
+        let dev = MockDevice { data: img };
+
+        let fat = Fat32::new(dev);
+
+        assert_eq!(fat.bytes_per_sector, 512);
+        assert_eq!(fat.sectors_per_cluster, 8);
+        assert_eq!(fat.root_cluster, 2);
+    }
+}
+
+
+// TODO: Implémenter des tests, avec la vrai image
