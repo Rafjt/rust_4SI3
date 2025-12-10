@@ -39,4 +39,8 @@ fn read_real_boot_sector() {
     assert_eq!(fat.bytes_per_sector(), 512);
     assert!(fat.sectors_per_cluster() > 0);
     assert_eq!(fat.root_cluster(), 2);
+    assert!(fat.reserved_sectors() > 0);
+    assert!(fat.number_of_fats() >= 1);
+    assert!(fat.sectors_per_fat() > 0);
+
 }
