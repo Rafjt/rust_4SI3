@@ -31,6 +31,21 @@ impl BlockDevice for FileBlockDevice {
     }
 }
 
+/////// bpb
+
+struct MockDevice {
+    data: Vec<u8>
+}
+
+impl BlockDevice for MockDevice {
+    fn read_sector(&mut self, lba: u64, sector: &mut [u8; 512]) {
+        let start = (lba as usize) * 512;
+        let end = start + 512;
+        sector.copy_from_slice(&self.data[start..end]);
+    }
+}
+
+
 #[test]
 fn read_real_boot_sector() {
     let dev = FileBlockDevice::open("../mydisk.img");
@@ -43,4 +58,30 @@ fn read_real_boot_sector() {
     assert!(fat.number_of_fats() >= 1);
     assert!(fat.sectors_per_fat() > 0);
 
+}
+
+fn test_offsets() {
+    let mut img = vec![0u8; 512];
+
+    img[11] = 0x00;
+    img[12] = 0x02;
+    img[13] = 0x08;
+    img[14] = 0x20;
+    img[15] = 0x00;
+    img[16] = 0x02;
+    img[36] = 0xD2;
+    img[37] = 0x04;
+    img[38] = 0x00;
+    img[39] = 0x00;
+    img[44] = 0x02;
+
+    let dev = MockDevice { data: img };
+    let fat = Fat32::new(dev);
+
+    assert_eq!(fat.fat_start_lba(), 32);
+
+    assert_eq!(
+        fat.data_start_lba(),
+        32 + 1234 * 2
+    );
 }

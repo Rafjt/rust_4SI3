@@ -14,51 +14,69 @@ pub struct Fat32<D: BlockDevice> {
     root_cluster: u32,
     reserved_sectors: u16, 
     number_of_fats: u8,
-    sectors_per_fat: u32
+    sectors_per_fat: u32,
+    fat_start: u32,
+    data_start: u32,
+
 }
 
- struct Bpb { 
-    bytes_per_sector: u16,
-    sectors_per_cluster: u8,
-    reserved_sectors: u16,
-    number_of_fats: u8,
-    sectors_per_fat: u32,
-    root_cluster: u32,
+pub struct Bpb { // => bien les mettres en public
+    pub bytes_per_sector: u16,
+    pub sectors_per_cluster: u8,
+    pub reserved_sectors: u16,
+    pub number_of_fats: u8,
+    pub sectors_per_fat: u32,
+    pub root_cluster: u32,
 }
 
 
 impl<D: BlockDevice> Fat32<D> { // Read du boot sector
     pub fn new(mut dev: D) -> Self {
-        let mut sector = [0u8; 512];
-        dev.read_sector(0, &mut sector);
+    let mut sector = [0u8; 512];
+    dev.read_sector(0, &mut sector);
 
-        let bytes_per_sector =
-            u16::from_le_bytes([sector[11], sector[12]]);
+    let bpb = Self::parser_bpb(&sector);
 
+    let fat_start = bpb.reserved_sectors as u32;
+
+    let data_start = bpb.reserved_sectors as u32 + (bpb.number_of_fats as u32 * bpb.sectors_per_fat);
+
+    Fat32 {
+        dev,
+        bytes_per_sector: bpb.bytes_per_sector,
+        sectors_per_cluster: bpb.sectors_per_cluster,
+        reserved_sectors: bpb.reserved_sectors,
+        number_of_fats: bpb.number_of_fats,
+        sectors_per_fat: bpb.sectors_per_fat,
+        root_cluster: bpb.root_cluster,
+        fat_start,
+        data_start,
+    }
+}
+}
+
+impl<D: BlockDevice> Fat32<D> {
+    pub fn parser_bpb(sector: &[u8; 512]) -> Bpb {
+        let bytes_per_sector = u16::from_le_bytes([sector[11], sector[12]]);
         let sectors_per_cluster = sector[13];
-
-        let reserved_sectors =
-            u16::from_le_bytes([sector[14], sector[15]]);
-
+        let reserved_sectors = u16::from_le_bytes([sector[14], sector[15]]);
         let number_of_fats = sector[16];
+        // sectors_per_fat => offset 36
+        let sectors_per_fat = u32::from_le_bytes([sector[36], sector[37], sector[38], sector[39]]);
 
-        let sectors_per_fat =
-            u32::from_le_bytes([sector[36],sector[37],sector[38],sector[39]]);
-
-        let root_cluster =
-            u32::from_le_bytes([sector[44],sector[45],sector[46],sector[47]]);
-
-        Fat32 {
-            dev,
+        // root cluster => offset 44
+        let root_cluster = u32::from_le_bytes([sector[44], sector[45], sector[46], sector[47]]);
+        Bpb {
             bytes_per_sector,
             sectors_per_cluster,
-            root_cluster,
             reserved_sectors,
             number_of_fats,
             sectors_per_fat,
+            root_cluster,
         }
     }
 }
+
 
 
 impl<D: BlockDevice> Fat32<D> {
@@ -86,6 +104,26 @@ impl<D: BlockDevice> Fat32<D> {
         self.sectors_per_fat
     }
 
+    pub fn fat_start(&self) -> u32 { 
+        self.fat_start 
+    }
+
+    pub fn data_start(&self) -> u32 { 
+        self.data_start 
+    }
+
 }
 
-// TODO: Implémznter lecture bpb 
+impl<D: BlockDevice> Fat32<D> {
+    pub fn fat_start_lba(&self) -> u32 {
+        self.reserved_sectors as u32
+    }
+
+    pub fn data_start_lba(&self) -> u32 {
+        let fat_region_size = self.number_of_fats as u32 * self.sectors_per_fat;
+        self.reserved_sectors as u32 + fat_region_size
+    }
+}
+
+
+// TODO: Calculer les zones de la FAT32
