@@ -78,4 +78,4 @@ impl<D: BlockDevice> Fat32<D> {
 
 }
 
-// TODO: Checker les offset 
+// TODO: Implémznter lecture bpb 
