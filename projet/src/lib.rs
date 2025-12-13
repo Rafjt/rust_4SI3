@@ -125,5 +125,40 @@ impl<D: BlockDevice> Fat32<D> {
     }
 }
 
+impl<D: BlockDevice> Fat32<D> {
+    pub fn read_fat_entry(&mut self, cluster: u32) -> u32 {
+        let fat_offset = cluster * 4;
+        let sector_size = self.bytes_per_sector as u32;
 
-// TODO: Calculer les zones de la FAT32
+        let fat_sector = self.fat_start + (fat_offset / sector_size);
+        let entry_offset = (fat_offset % sector_size) as usize;
+
+        let mut sector = [0u8; 512];
+        self.dev.read_sector(fat_sector as u64, &mut sector);
+
+        let value = u32::from_le_bytes([
+            sector[entry_offset],
+            sector[entry_offset + 1],
+            sector[entry_offset + 2],
+            sector[entry_offset + 3],
+        ]);
+
+        value & 0x0FFFFFFF
+    }
+}
+
+impl<D: BlockDevice> Fat32<D> {
+    pub fn read_cluster(&mut self, cluster: u32) -> Vec<u8> {
+        let mut data = Vec::new();
+        let start_sector = self.data_start_lba() + ((cluster - 2) * self.sectors_per_cluster as u32);
+
+        for i in 0..self.sectors_per_cluster as u32 {
+            let sector_num = start_sector + i;
+            let mut sector = [0u8; 512];
+            self.dev.read_sector(sector_num as u64, &mut sector);
+            data.extend_from_slice(&sector);
+        }
+
+        data
+    }
+}
