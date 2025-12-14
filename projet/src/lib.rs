@@ -162,3 +162,28 @@ impl<D: BlockDevice> Fat32<D> {
         data
     }
 }
+
+impl<D: BlockDevice> Fat32<D> {
+    pub fn read_file_from_cluster(&mut self, start_cluster: u32) -> Vec<u8> {
+        let mut content = Vec::new();
+        let mut current_cluster = start_cluster;
+
+        loop {
+            //  On read le cluster courant
+            let cluster_data = self.read_cluster(current_cluster);
+            content.extend_from_slice(&cluster_data);
+
+            // On read FAT suivante
+            let next = self.read_fat_entry(current_cluster);
+
+            if next >= 0x0FFFFFF8 {
+                break;
+            }
+
+            current_cluster = next;
+        }
+
+        content
+    }
+}
+
