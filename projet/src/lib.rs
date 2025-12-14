@@ -29,6 +29,12 @@ pub struct Bpb { // => bien les mettres en public
     pub root_cluster: u32,
 }
 
+pub struct DirEntry {
+    pub name: [u8; 11],
+    pub attr: u8,
+    pub first_cluster: u32,
+}
+
 
 impl<D: BlockDevice> Fat32<D> { // Read du boot sector
     pub fn new(mut dev: D) -> Self {
@@ -187,3 +193,58 @@ impl<D: BlockDevice> Fat32<D> {
     }
 }
 
+impl DirEntry {
+    pub fn from_bytes(entry: &[u8]) -> Option<Self> {
+        // Fin du répertoire
+        if entry[0] == 0x00 {
+            return None;
+        }
+
+        // Entrée supprimée
+        if entry[0] == 0xE5 {
+            return None;
+        }
+
+        let mut name = [0u8; 11];
+        name.copy_from_slice(&entry[0..11]);
+
+        let attr = entry[11];
+
+        let high = u16::from_le_bytes([entry[20], entry[21]]);
+        let low  = u16::from_le_bytes([entry[26], entry[27]]);
+        let first_cluster = ((high as u32) << 16) | (low as u32);
+
+        Some(Self {
+            name,
+            attr,
+            first_cluster,
+        })
+    }
+
+    pub fn is_dir(&self) -> bool {
+        self.attr & 0x10 != 0
+    }
+
+    pub fn is_file(&self) -> bool {
+        self.attr & 0x20 != 0
+    }
+}
+
+impl<D: BlockDevice> Fat32<D> {
+    pub fn read_dir(&mut self, cluster: u32) -> Vec<DirEntry> {
+        let data = self.read_cluster(cluster);
+        let mut entries = Vec::new();
+
+        for i in 0..(data.len() / 32) {
+            let entry = &data[i * 32..(i + 1) * 32];
+
+            if let Some(dir_entry) = DirEntry::from_bytes(entry) {
+                entries.push(dir_entry);
+            } else if entry[0] == 0x00 {
+                break; // fin du répertoire
+            }
+        }
+
+        entries
+    }
+}
