@@ -1,3 +1,7 @@
+// Projet FAT32 – Rust
+// Auteur : Rafael Fernando
+// Année : 2025
+
 #![no_std]
 
 extern crate alloc;
